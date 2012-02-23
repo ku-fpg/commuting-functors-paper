@@ -40,9 +40,15 @@ instance (GaloisConnection2 spec impl, GaloisConnection spec1 impl1) =>
         repr1 = repr2
 
 -- actual, real instances
+{- causes overlapping and incoherent instances...
 instance GaloisConnection a a where
         abstr = id
         repr = id
+-}
+
+instance GaloisConnection Bool Bool where
+    abstr = id
+    repr = id
 
 instance GaloisConnection2 (->) (->) where
         abstr2 f = abstr . f . repr
