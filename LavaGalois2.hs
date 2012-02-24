@@ -27,6 +27,8 @@ fromList :: [a] -> Stream a
 fromList (x:xs) = Cons x $ fromList xs
 fromList [] = error "fromList: empty list!"
 
+zipWithS :: (a -> b -> c) -> Stream a -> Stream b -> Stream c
+zipWithS f (Cons x xs) (Cons y ys) = Cons (f x y) $ zipWithS f xs ys
 
 ------------------------------------------------------------
 -- Lava Semantics
