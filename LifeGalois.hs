@@ -140,6 +140,48 @@ evalStep1 = unStep1F
 -- ghci> evalStep1 (unconnected listProxy :: Step1F Bool)
 -- ghci> evalStep1 $ transposeLF [Step1F $ fromList $ map Just $ cycle [True,False,False], Step1F $ fromList $ map Just $ cycle [True,False]]
 
+------------------------------------------------------------
+-- Step 3: [a] -> Tuple8 a
+------------------------------------------------------------
+
+class Step3 a where
+    type Step3T a
+    untuple :: Step3T a -> a
+    tuple :: a -> Step3T a
+
+{-
+instance (Functor f, Step3 a) => Step3 (f a) where
+    type Step3T (f a) = f (Step3T a)
+    untuple = fmap untuple
+    tuple = fmap tuple
+-}
+
+step3Proxy :: FProxy Step3F
+step3Proxy = FProxy
+
+instance Step3 [a] where
+    type Step3T [a] = (a,a,a,a,a,a,a,a)
+    untuple (a,b,c,d,e,f,g,h) = [a,b,c,d,e,f,g,h]
+    tuple [a,b,c,d,e,f,g,h] = (a,b,c,d,e,f,g,h)
+    tuple _                 = error "tuple: ill-formed list"
+
+newtype Step3F a = Step3F { unStep3F :: Step3T [a] }
+
+instance Step3 a => GaloisConnection [a] (Step3F a) where
+    abstr = untuple . unStep3F
+    repr = Step3F . tuple
+
+instance LifeSemantics Step3F Step1F where
+--    unconnected p = repr (unconnected :: FProxy [] -> Step1F Bool)
+
+--  We have some problems with box and life, due to the FProxy and Bool arguments
+--     box = repr (box :: FProxy [] -> Bool -> [Stream Bool] -> Stream Bool)
+--     transposeLF = repr (transposeLF :: [Step1F Bool] -> Step1F [Bool])
+--    life = repr (life :: FProxy [] -> [Bool] -> [Stream Bool])
+
+evalStep3 = unStep3F
+-- ghci> evalStep1 (unconnected listProxy :: Step1F Bool)
+-- ghci> evalStep1 $ transposeLF [Step1F $ fromList $ map Just $ cycle [True,False,False], Step1F $ fromList $ map Just $ cycle [True,False]]
 {-
 ------------------------------------------------------------
 -- Step 2: Stream (Maybe a) ==> Maybe (Stream a)
