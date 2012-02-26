@@ -35,7 +35,7 @@ zipWithS f (Cons x xs) (Cons y ys) = Cons (f x y) $ zipWithS f xs ys
 -- Lava Semantics
 ------------------------------------------------------------
 
--- the top-level definition
+-- Language primitives.
 class LavaSemantics f where
     unconnected :: f Bool
 
@@ -43,13 +43,12 @@ class LavaSemantics f where
     and2 :: f Bool -> f Bool -> f Bool
     xor2 :: f Bool -> f Bool -> f Bool
 
--- Inferred type:
 -- halfAdder :: LavaSemantics f => f Bool -> f Bool -> (f Bool, f Bool)
 halfAdder x y = (carry, sum)
     where carry = and2 x y
           sum   = xor2 x y
 
--- the high-level, abstract implementation as a Haskell term
+-- Initial semantics, using streams.
 instance LavaSemantics Stream where
     unconnected = fromList $ repeat False
 
@@ -58,6 +57,10 @@ instance LavaSemantics Stream where
     xor2 s1 s2 = zipWithS (/=) s1 s2
 
 -- ghci> halfAdder (fromList $ cycle [False,True]) (fromList $ cycle [False,False,True,True])
+
+------------------------------------------------------------
+-- Step 1: Stream a ==> Stream (Maybe a)
+------------------------------------------------------------
 
 class Step1 a where
     type Step1T a
@@ -89,6 +92,10 @@ instance LavaSemantics Step1F where
     xor2 = repr (xor2 :: Stream Bool -> Stream Bool -> Stream Bool)
 
 evalStep1 = unStep1F
+
+------------------------------------------------------------
+-- Step 2: Stream (Maybe a) ==> Maybe (Stream a)
+------------------------------------------------------------
 
 class Step2 a where
     type Step2T a
@@ -124,9 +131,9 @@ box :: Bool -> [Stream Bool] -> Stream Bool
 box init nss = res
   where res = Cons init $ zipWithS step (transposeLS nss) res
 
-        -- we played fast and loose with 'transpose' in the paper
-        transposeLS :: [Stream Bool] -> Stream [Bool]
-        transposeLS = fromList . transpose . fmap toList
+-- we played fast and loose with 'transpose' in the paper
+transposeLS :: [Stream Bool] -> Stream [Bool]
+transposeLS = fromList . transpose . fmap toList
 
 step :: [Bool] -> Bool -> Bool
 step ns live | live && neighbors == 2 = True
@@ -134,3 +141,32 @@ step ns live | live && neighbors == 2 = True
              | not live && neighbors == 3 = True
              | otherwise = False
   where neighbors = length (filter id ns)
+
+-- box_impl :: Bool -> Tuple8 (Maybe (Signal Bool)) -> Signal Bool
+
+-- life box is dim^2 spaces
+dim = 5
+
+life :: [Bool] -> [Stream Bool]
+life inits | length inits == dim * dim = res
+           | otherwise = error $ "initial board should be " ++ show (dim * dim) ++ " squares"
+    where res = zipWith box inits neighbors
+          neighbors :: [[Stream Bool]]
+          neighbors = [ [ neighbor n res | n <- [i-dim-1, i-dim, i-dim+1, i-1, i+1, i+dim-1, i+dim, i+dim+1] ]
+                      | i <- [1..dim*dim] ]
+
+          neighbor :: Int -> [Stream Bool] -> Stream Bool
+          neighbor n ss | n >= 1 && n <= dim*dim = ss !! (n-1)
+                        | otherwise = unconnected
+
+pp :: [Stream Bool] -> IO ()
+pp = mapM_ pr . take 20 . toList . transposeLS
+    where pr board | or board = mapM_ putStrLn
+                              $ chunk
+                              $ map (\x -> if x then 'X' else '_') board
+                   | otherwise = return ()
+          chunk [] = [""]
+          chunk l = take dim l : chunk (drop dim l)
+
+-- Example on page 1 of the paper:
+-- pp $ life $ replicate 8 False ++ [True,False,False,True,False,True,False,False,False,True,True] ++ replicate 6 False
