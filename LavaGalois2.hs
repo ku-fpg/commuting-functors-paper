@@ -101,10 +101,9 @@ instance Step2 (Stream (Maybe a)) where
     uncommute (Just s) = fmap Just s
     commute s@(Cons x _) = maybe Nothing (const $ Just $ fmap fromJust s) x
 
-newtype Step2F a = Step2F { unStep2F :: Step2T (Stream (Maybe a)) }
+newtype Step2F a = Step2F { unStep2F :: Step2T (Step1T (Stream a)) }
 
--- TODO: Deal with type equality.
-instance (Maybe a ~ Step1T a, Step2 (Stream (Maybe a))) => GaloisConnection (Step1F a) (Step2F a) where
+instance (Step2 (Step1T (Stream a))) => GaloisConnection (Step1F a) (Step2F a) where
     abstr = Step1F . uncommute . unStep2F
     repr = Step2F . commute . unStep1F
 
